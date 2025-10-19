@@ -10,6 +10,7 @@ import 'package:otzaria/tabs/models/pdf_tab.dart';
 import 'package:otzaria/tabs/models/text_tab.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:otzaria/data/repository/data_repository.dart';
+import 'package:otzaria/data/data_providers/file_system_data_provider.dart';
 import 'package:otzaria/utils/text_manipulation.dart' as utils;
 import 'package:otzaria/tabs/models/tab.dart';
 
@@ -89,7 +90,7 @@ Future<Map<String, dynamic>?> _parseBookReference(String reference) async {
   try {
     final dataRepository = DataRepository.instance;
     final library = await dataRepository.library;
-    final titleToPath = await dataRepository.titleToPath;
+    final titleToPath = await FileSystemData.instance.titleToPath;
     
     // Split reference into book name and location
     final parts = reference.split(RegExp(r'[:\s]+'));
@@ -101,8 +102,11 @@ Future<Map<String, dynamic>?> _parseBookReference(String reference) async {
     Book? foundBook;
     String? bookPath;
     
+    // Get all books from library
+    final allBooks = library.getAllBooks();
+    
     // Look for exact title match
-    for (final book in library) {
+    for (final book in allBooks) {
       if (book.title == bookName) {
         foundBook = book;
         bookPath = titleToPath[book.title];
@@ -112,7 +116,7 @@ Future<Map<String, dynamic>?> _parseBookReference(String reference) async {
     
     // If no exact match, try partial matching
     if (foundBook == null) {
-      for (final book in library) {
+      for (final book in allBooks) {
         if (book.title.contains(bookName) || bookName.contains(book.title)) {
           foundBook = book;
           bookPath = titleToPath[book.title];
@@ -124,7 +128,7 @@ Future<Map<String, dynamic>?> _parseBookReference(String reference) async {
     // If still no match, try with common abbreviations
     if (foundBook == null) {
       final expandedName = utils.replaceParaphrases(bookName);
-      for (final book in library) {
+      for (final book in allBooks) {
         if (book.title.contains(expandedName) || expandedName.contains(book.title)) {
           foundBook = book;
           bookPath = titleToPath[book.title];
