@@ -18,6 +18,7 @@ import 'package:otzaria/tabs/models/tab.dart';
 import 'package:otzaria/models/books.dart';
 import 'package:otzaria/utils/text_manipulation.dart' as utils;
 import 'package:otzaria/text_book/bloc/text_book_event.dart';
+import 'package:otzaria/utils/open_book.dart';
 
 class CombinedView extends StatefulWidget {
   CombinedView({
@@ -256,6 +257,9 @@ class _CombinedViewState extends State<CombinedView> {
                   fontFamily: settingsState.fontFamily,
                   textAlign: TextAlign.justify),
             },
+            onLinkTap: (url, attributes, element) {
+              _handleLinkTap(url, context);
+            },
           );
         },
       ),
@@ -270,6 +274,28 @@ class _CombinedViewState extends State<CombinedView> {
               ),
       ],
     );
+  }
+
+  /// Handles link taps by attempting to open the referenced book
+  void _handleLinkTap(String? url, BuildContext context) {
+    if (url == null || url.isEmpty) return;
+    
+    try {
+      // Try to parse and open the book reference
+      openBookFromReference(
+        context: context,
+        reference: url,
+        openBookCallback: widget.openBookCallback,
+      );
+    } catch (e) {
+      // If parsing fails, show a snackbar with the error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('לא ניתן לפתוח את הקישור: $url'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
