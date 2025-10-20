@@ -18,7 +18,6 @@ import 'package:otzaria/tabs/models/tab.dart';
 import 'package:otzaria/models/books.dart';
 import 'package:otzaria/utils/text_manipulation.dart' as utils;
 import 'package:otzaria/text_book/bloc/text_book_event.dart';
-import 'package:otzaria/utils/open_book.dart';
 
 class CombinedView extends StatefulWidget {
   CombinedView({
@@ -45,6 +44,26 @@ class CombinedView extends StatefulWidget {
 class _CombinedViewState extends State<CombinedView> {
   final GlobalKey<SelectionAreaState> _selectionKey =
       GlobalKey<SelectionAreaState>();
+
+  /// טיפול בלחיצה על קישורים לספרים
+  void _handleBookLink(String? url) {
+    if (url == null || url.isEmpty) return;
+    
+    // אם זה קישור לספר מקומי (מתחיל ב-book://)
+    if (url.startsWith('book://')) {
+      final bookTitle = url.substring(7); // הסרת הקידומת book://
+      
+      // פתיחת הספר בתוכנה
+      widget.openBookCallback(
+        TextBookTab(
+          book: TextBook(title: bookTitle),
+          index: 0,
+          openLeftPane: (Settings.getValue<bool>('key-pin-sidebar') ?? false) ||
+              (Settings.getValue<bool>('key-default-sidebar-open') ?? false),
+        ),
+      );
+    }
+  }
 
   /// helper קטן שמחזיר רשימת MenuEntry מקבוצה אחת
   List<ctx.MenuItem<void>> _buildGroup(
@@ -246,11 +265,11 @@ class _CombinedViewState extends State<CombinedView> {
           return Html(
             //remove nikud if needed
             data: state.removeNikud
-                ? utils.highLight(
+                ? utils.addBookLinks(utils.highLight(
                     utils.removeVolwels('$data\n'),
                     state.searchText,
-                  )
-                : utils.highLight('$data\n', state.searchText),
+                  ))
+                : utils.addBookLinks(utils.highLight('$data\n', state.searchText)),
             style: {
               'body': Style(
                   fontSize: FontSize(widget.textSize),
@@ -258,7 +277,7 @@ class _CombinedViewState extends State<CombinedView> {
                   textAlign: TextAlign.justify),
             },
             onLinkTap: (url, attributes, element) {
-              _handleLinkTap(url, context);
+              _handleBookLink(url);
             },
           );
         },
@@ -274,28 +293,6 @@ class _CombinedViewState extends State<CombinedView> {
               ),
       ],
     );
-  }
-
-  /// Handles link taps by attempting to open the referenced book
-  void _handleLinkTap(String? url, BuildContext context) {
-    if (url == null || url.isEmpty) return;
-    
-    try {
-      // Try to parse and open the book reference
-      openBookFromReference(
-        context: context,
-        reference: url,
-        openBookCallback: widget.openBookCallback,
-      );
-    } catch (e) {
-      // If parsing fails, show a snackbar with the error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('לא ניתן לפתוח את הקישור: $url'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   @override
