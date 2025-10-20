@@ -51,18 +51,63 @@ class _CombinedViewState extends State<CombinedView> {
     
     // אם זה קישור לספר מקומי (מתחיל ב-book://)
     if (url.startsWith('book://')) {
-      final bookTitle = url.substring(7); // הסרת הקידומת book://
+      final urlContent = url.substring(7); // הסרת הקידומת book://
+      
+      // בדיקה אם יש דף ספציפי (מופרד ב-#)
+      final parts = urlContent.split('#');
+      final bookTitle = parts[0];
+      int pageIndex = 0;
+      
+      // אם יש דף ספציפי, ננסה להמיר אותו למספר
+      if (parts.length > 1) {
+        final pageInfo = parts[1];
+        // הסרת הקידומת "דף_" אם קיימת
+        final pageStr = pageInfo.replaceFirst('דף_', '');
+        // המרת אותיות עבריות למספרים (פשוט מאוד - ניתן להרחיב)
+        pageIndex = _hebrewToNumber(pageStr);
+      }
       
       // פתיחת הספר בתוכנה
       widget.openBookCallback(
         TextBookTab(
           book: TextBook(title: bookTitle),
-          index: 0,
+          index: pageIndex,
           openLeftPane: (Settings.getValue<bool>('key-pin-sidebar') ?? false) ||
               (Settings.getValue<bool>('key-default-sidebar-open') ?? false),
         ),
       );
     }
+  }
+  
+  /// המרת אותיות עבריות למספרים (פשוט)
+  int _hebrewToNumber(String hebrew) {
+    // מפת המרה בסיסית
+    final Map<String, int> hebrewNumerals = {
+      'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5,
+      'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9, 'י': 10,
+      'כ': 20, 'ל': 30, 'מ': 40, 'נ': 50,
+      'ס': 60, 'ע': 70, 'פ': 80, 'צ': 90,
+      'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400,
+    };
+    
+    int result = 0;
+    for (int i = 0; i < hebrew.length; i++) {
+      final char = hebrew[i];
+      if (hebrewNumerals.containsKey(char)) {
+        result += hebrewNumerals[char]!;
+      }
+    }
+    
+    // אם יש עמוד א' או ב', נתאים את האינדקס
+    if (hebrew.endsWith('א')) {
+      result = (result - 1) * 2; // עמוד א
+    } else if (hebrew.endsWith('ב')) {
+      result = (result - 1) * 2 + 1; // עמוד ב
+    } else {
+      result = result > 0 ? result - 1 : 0;
+    }
+    
+    return result;
   }
 
   /// helper קטן שמחזיר רשימת MenuEntry מקבוצה אחת
