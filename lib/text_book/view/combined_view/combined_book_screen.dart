@@ -85,10 +85,9 @@ class _CombinedViewState extends State<CombinedView> {
       
       // אם יש טקסט לחיפוש, נבצע חיפוש אחרי פתיחת הספר
       if (searchText != null && searchText.isNotEmpty) {
-        // נחכה רגע שהספר ייפתח ואז נבצע חיפוש
+        // נחכה רגע שהספר ייפתח ואז נבצע חיפוש וניווט
         Future.delayed(const Duration(milliseconds: 500), () {
-          // כאן ניתן להוסיף לוגיקה לחיפוש הטקסט בספר
-          // לדוגמה, לשלוח אירוע חיפוש ל-TextBookBloc
+          _searchAndNavigateToText(searchText);
         });
       }
     }
@@ -123,6 +122,40 @@ class _CombinedViewState extends State<CombinedView> {
     }
     
     return result;
+  }
+
+  /// חיפוש טקסט בספר וניווט אליו
+  void _searchAndNavigateToText(String searchText) {
+    final currentState = context.read<TextBookBloc>().state;
+    if (currentState is! TextBookLoaded) return;
+
+    // חיפוש הטקסט בתוכן הספר
+    int foundIndex = -1;
+    for (int i = 0; i < widget.data.length; i++) {
+      final content = widget.data[i];
+      // חיפוש הטקסט (ללא רגישות לרווחים וסימני פיסוק)
+      final cleanContent = utils.removeVolwels(content.toLowerCase());
+      final cleanSearchText = utils.removeVolwels(searchText.toLowerCase());
+      
+      if (cleanContent.contains(cleanSearchText)) {
+        foundIndex = i;
+        break;
+      }
+    }
+
+    if (foundIndex != -1) {
+      // עדכון טקסט החיפוש להדגשה
+      context.read<TextBookBloc>().add(UpdateSearchText(searchText));
+      
+      // ניווט לאינדקס שנמצא
+      currentState.scrollController.scrollTo(
+        index: foundIndex,
+        duration: const Duration(milliseconds: 500),
+      );
+      
+      // עדכון האינדקס הנבחר
+      context.read<TextBookBloc>().add(UpdateSelectedIndex(foundIndex));
+    }
   }
 
   /// helper קטן שמחזיר רשימת MenuEntry מקבוצה אחת
