@@ -53,29 +53,44 @@ class _CombinedViewState extends State<CombinedView> {
     if (url.startsWith('book://')) {
       final urlContent = url.substring(7); // הסרת הקידומת book://
       
-      // בדיקה אם יש דף ספציפי (מופרד ב-#)
+      // בדיקה אם יש כותרת או דף ספציפי (מופרד ב-#)
       final parts = urlContent.split('#');
       final bookTitle = parts[0];
       int pageIndex = 0;
+      String? searchText;
       
-      // אם יש דף ספציפי, ננסה להמיר אותו למספר
+      // אם יש חלק ספציפי אחרי ה-#
       if (parts.length > 1) {
-        final pageInfo = parts[1];
-        // הסרת הקידומת "דף_" אם קיימת
-        final pageStr = pageInfo.replaceFirst('דף_', '');
-        // המרת אותיות עבריות למספרים (פשוט מאוד - ניתן להרחיב)
-        pageIndex = _hebrewToNumber(pageStr);
+        final fragment = parts[1];
+        
+        // אם זה דף (מתחיל ב-"דף_")
+        if (fragment.startsWith('דף_')) {
+          final pageStr = fragment.substring(3); // הסרת "דף_"
+          pageIndex = _hebrewToNumber(pageStr);
+        } else {
+          // אחרת, זה כותרת לחיפוש
+          searchText = fragment.replaceAll('_', ' ');
+        }
       }
       
       // פתיחת הספר בתוכנה
-      widget.openBookCallback(
-        TextBookTab(
-          book: TextBook(title: bookTitle),
-          index: pageIndex,
-          openLeftPane: (Settings.getValue<bool>('key-pin-sidebar') ?? false) ||
-              (Settings.getValue<bool>('key-default-sidebar-open') ?? false),
-        ),
+      final tab = TextBookTab(
+        book: TextBook(title: bookTitle),
+        index: pageIndex,
+        openLeftPane: (Settings.getValue<bool>('key-pin-sidebar') ?? false) ||
+            (Settings.getValue<bool>('key-default-sidebar-open') ?? false),
       );
+      
+      widget.openBookCallback(tab);
+      
+      // אם יש טקסט לחיפוש, נבצע חיפוש אחרי פתיחת הספר
+      if (searchText != null && searchText.isNotEmpty) {
+        // נחכה רגע שהספר ייפתח ואז נבצע חיפוש
+        Future.delayed(const Duration(milliseconds: 500), () {
+          // כאן ניתן להוסיף לוגיקה לחיפוש הטקסט בספר
+          // לדוגמה, לשלוח אירוע חיפוש ל-TextBookBloc
+        });
+      }
     }
   }
   
