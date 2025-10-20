@@ -22,6 +22,34 @@ String highLight(String data, String searchQuery) {
   return data;
 }
 
+/// הוספת קישורים לספרים בטקסט
+String addBookLinks(String text) {
+  // רשימת ספרים שיהפכו לקישורים
+  final Map<String, String> bookLinks = {
+    'בראשית': 'בראשית',
+    'שמות': 'שמות', 
+    'ויקרא': 'ויקרא',
+    'במדבר': 'במדבר',
+    'דברים': 'דברים',
+    'ברכות': 'ברכות',
+    'מסכת ברכות': 'ברכות',
+    // ניתן להוסיף עוד ספרים כאן
+  };
+  
+  String result = text;
+  
+  // עבור כל ספר ברשימה, נחליף את המילה בקישור
+  bookLinks.forEach((word, bookTitle) {
+    // נוודא שאנחנו מחליפים רק מילים שלמות (לא חלק ממילה אחרת)
+    final regex = RegExp(r'\b' + RegExp.escape(word) + r'\b');
+    result = result.replaceAllMapped(regex, (match) {
+      return '<a href="book://$bookTitle">$word</a>';
+    });
+  });
+  
+  return result;
+}
+
 String getTitleFromPath(String path) {
   path = path
       .replaceAll('/', Platform.pathSeparator)
