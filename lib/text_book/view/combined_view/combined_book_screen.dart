@@ -46,6 +46,9 @@ class _CombinedViewState extends State<CombinedView> {
       GlobalKey<SelectionAreaState>();
 
   /// טיפול בלחיצה על קישורים לספרים
+  /// תומך בשני סוגי קישורים:
+  /// 1. קישור לדף ספציפי: book://ברכות#דף_ב
+  /// 2. קישור לכותרת: book://בראשית#פרק_א (משתמש במערכת TOC הקיימת)
   void _handleBookLink(String? url) {
     if (url == null || url.isEmpty) return;
     
@@ -57,7 +60,7 @@ class _CombinedViewState extends State<CombinedView> {
       final parts = urlContent.split('#');
       final bookTitle = parts[0];
       int pageIndex = 0;
-      String? searchText;
+      String? tocTitle;
       
       // אם יש חלק ספציפי אחרי ה-#
       if (parts.length > 1) {
@@ -68,8 +71,8 @@ class _CombinedViewState extends State<CombinedView> {
           final pageStr = fragment.substring(3); // הסרת "דף_"
           pageIndex = _hebrewToNumber(pageStr);
         } else {
-          // אחרת, זה כותרת לחיפוש
-          searchText = fragment.replaceAll('_', ' ');
+          // אחרת, זה כותרת - נשתמש במערכת TOC הקיימת
+          tocTitle = fragment.replaceAll('_', ' ');
         }
       }
       
@@ -83,12 +86,9 @@ class _CombinedViewState extends State<CombinedView> {
       
       widget.openBookCallback(tab);
       
-      // אם יש טקסט לחיפוש, נבצע חיפוש אחרי פתיחת הספר
-      if (searchText != null && searchText.isNotEmpty) {
-        // נחכה רגע שהספר ייפתח ואז נבצע חיפוש וניווט
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _searchAndNavigateToText(searchText);
-        });
+      // אם יש כותרת לחיפוש, נחפש אותה במערכת TOC
+      if (tocTitle != null && tocTitle.isNotEmpty) {
+        _navigateToTocEntry(bookTitle, tocTitle);
       }
     }
   }
@@ -124,38 +124,59 @@ class _CombinedViewState extends State<CombinedView> {
     return result;
   }
 
-  /// חיפוש טקסט בספר וניווט אליו
-  void _searchAndNavigateToText(String searchText) {
-    final currentState = context.read<TextBookBloc>().state;
-    if (currentState is! TextBookLoaded) return;
-
-    // חיפוש הטקסט בתוכן הספר
-    int foundIndex = -1;
-    for (int i = 0; i < widget.data.length; i++) {
-      final content = widget.data[i];
-      // חיפוש הטקסט (ללא רגישות לרווחים וסימני פיסוק)
-      final cleanContent = utils.removeVolwels(content.toLowerCase());
-      final cleanSearchText = utils.removeVolwels(searchText.toLowerCase());
+  /// חיפוש כותרת במערכת TOC וניווט אליה
+  void _navigateToTocEntry(String bookTitle, String tocTitle) async {
+    try {
+      // קבלת תוכן העניינים של הספר
+      final book = TextBook(title: bookTitle);
+      final tableOfContents = await book.tableOfContents;
       
-      if (cleanContent.contains(cleanSearchText)) {
-        foundIndex = i;
-        break;
+      // חיפוש הכותרת ברשימת תוכן העניינים
+      TocEntry? foundEntry = _findTocEntryByTitle(tableOfContents, tocTitle);
+      
+      if (foundEntry != null) {
+        // נחכה רגע שהספר ייפתח ואז ננווט לכותרת
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final currentState = context.read<TextBookBloc>().state;
+          if (currentState is TextBookLoaded) {
+            // ניווט לאינדקס של הכותרת
+            currentState.scrollController.scrollTo(
+              index: foundEntry.index,
+              duration: const Duration(milliseconds: 500),
+            );
+            
+            // עדכון האינדקס הנבחר
+            context.read<TextBookBloc>().add(UpdateSelectedIndex(foundEntry.index));
+          }
+        });
+      }
+    } catch (e) {
+      // אם יש שגיאה, פשוט נפתח את הספר בתחילה
+      print('Error navigating to TOC entry: $e');
+    }
+  }
+  
+  /// חיפוש כותרת ברשימת תוכן העניינים (רקורסיבי)
+  TocEntry? _findTocEntryByTitle(List<TocEntry> entries, String title) {
+    for (final entry in entries) {
+      // בדיקה אם הכותרת מתאימה (ללא רגישות לרווחים וניקוד)
+      final cleanEntryText = utils.removeVolwels(entry.text.toLowerCase().trim());
+      final cleanFullText = utils.removeVolwels(entry.fullText.toLowerCase().trim());
+      final cleanSearchTitle = utils.removeVolwels(title.toLowerCase().trim());
+      
+      if (cleanEntryText.contains(cleanSearchTitle) || 
+          cleanFullText.contains(cleanSearchTitle) ||
+          cleanSearchTitle.contains(cleanEntryText)) {
+        return entry;
+      }
+      
+      // חיפוש רקורסיבי בילדים
+      final childResult = _findTocEntryByTitle(entry.children, title);
+      if (childResult != null) {
+        return childResult;
       }
     }
-
-    if (foundIndex != -1) {
-      // עדכון טקסט החיפוש להדגשה
-      context.read<TextBookBloc>().add(UpdateSearchText(searchText));
-      
-      // ניווט לאינדקס שנמצא
-      currentState.scrollController.scrollTo(
-        index: foundIndex,
-        duration: const Duration(milliseconds: 500),
-      );
-      
-      // עדכון האינדקס הנבחר
-      context.read<TextBookBloc>().add(UpdateSelectedIndex(foundIndex));
-    }
+    return null;
   }
 
   /// helper קטן שמחזיר רשימת MenuEntry מקבוצה אחת
