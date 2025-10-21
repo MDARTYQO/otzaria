@@ -46,9 +46,8 @@ class _CombinedViewState extends State<CombinedView> {
       GlobalKey<SelectionAreaState>();
 
   /// טיפול בלחיצה על קישורים לספרים
-  /// תומך בשני סוגי קישורים:
-  /// 1. קישור לדף ספציפי: book://ברכות#דף_ב
-  /// 2. קישור לכותרת: book://בראשית#פרק_א (משתמש במערכת TOC הקיימת)
+  /// תומך בקישורים לכותרות: book://ברכות#דף_לא
+  /// משתמש במערכת TOC הקיימת לחיפוש וניווט לכותרות
   void _handleBookLink(String? url) {
     if (url == null || url.isEmpty) return;
     
@@ -66,14 +65,8 @@ class _CombinedViewState extends State<CombinedView> {
       if (parts.length > 1) {
         final fragment = parts[1];
         
-        // אם זה דף (מתחיל ב-"דף_")
-        if (fragment.startsWith('דף_')) {
-          final pageStr = fragment.substring(3); // הסרת "דף_"
-          pageIndex = _hebrewToNumber(pageStr);
-        } else {
-          // אחרת, זה כותרת - נשתמש במערכת TOC הקיימת
-          tocTitle = fragment.replaceAll('_', ' ');
-        }
+        // כל מה שאחרי ה-# הוא כותרת לחיפוש במערכת TOC
+        tocTitle = fragment.replaceAll('_', ' ');
       }
       
       // פתיחת הספר בתוכנה
@@ -93,36 +86,7 @@ class _CombinedViewState extends State<CombinedView> {
     }
   }
   
-  /// המרת אותיות עבריות למספרים (פשוט)
-  int _hebrewToNumber(String hebrew) {
-    // מפת המרה בסיסית
-    final Map<String, int> hebrewNumerals = {
-      'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5,
-      'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9, 'י': 10,
-      'כ': 20, 'ל': 30, 'מ': 40, 'נ': 50,
-      'ס': 60, 'ע': 70, 'פ': 80, 'צ': 90,
-      'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400,
-    };
-    
-    int result = 0;
-    for (int i = 0; i < hebrew.length; i++) {
-      final char = hebrew[i];
-      if (hebrewNumerals.containsKey(char)) {
-        result += hebrewNumerals[char]!;
-      }
-    }
-    
-    // אם יש עמוד א' או ב', נתאים את האינדקס
-    if (hebrew.endsWith('א')) {
-      result = (result - 1) * 2; // עמוד א
-    } else if (hebrew.endsWith('ב')) {
-      result = (result - 1) * 2 + 1; // עמוד ב
-    } else {
-      result = result > 0 ? result - 1 : 0;
-    }
-    
-    return result;
-  }
+
 
   /// חיפוש כותרת במערכת TOC וניווט אליה
   void _navigateToTocEntry(String bookTitle, String tocTitle) async {
